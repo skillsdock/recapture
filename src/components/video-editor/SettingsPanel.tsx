@@ -48,6 +48,7 @@ import type {
 	AnnotationRegion,
 	AnnotationType,
 	CropRegion,
+	EmojiData,
 	FigureData,
 	PlaybackSpeed,
 	WebcamLayoutPreset,
@@ -140,6 +141,7 @@ interface SettingsPanelProps {
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
+	onAnnotationEmojiDataChange?: (id: string, emojiData: EmojiData) => void;
 	onAnnotationDelete?: (id: string) => void;
 	selectedSpeedId?: string | null;
 	selectedSpeedValue?: PlaybackSpeed | null;
@@ -213,6 +215,7 @@ export function SettingsPanel({
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
 	onAnnotationFigureDataChange,
+	onAnnotationEmojiDataChange,
 	onAnnotationDelete,
 	selectedSpeedId,
 	selectedSpeedValue,
@@ -464,6 +467,11 @@ export function SettingsPanel({
 				onFigureDataChange={
 					onAnnotationFigureDataChange
 						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
+						: undefined
+				}
+				onEmojiDataChange={
+					onAnnotationEmojiDataChange
+						? (emojiData) => onAnnotationEmojiDataChange(selectedAnnotation.id, emojiData)
 						: undefined
 				}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}

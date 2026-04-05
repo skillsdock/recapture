@@ -215,6 +215,32 @@ function renderText(
 	ctx.restore();
 }
 
+function renderEmoji(
+	ctx: CanvasRenderingContext2D,
+	annotation: AnnotationRegion,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	scaleFactor: number,
+) {
+	const emojiChar = annotation.emojiData?.emoji || annotation.content || "\u{1F44D}";
+	const emojiSize = (annotation.emojiData?.size || 64) * scaleFactor;
+
+	ctx.save();
+
+	ctx.font = `${emojiSize}px serif`;
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+
+	const centerX = x + width / 2;
+	const centerY = y + height / 2;
+
+	ctx.fillText(emojiChar, centerX, centerY);
+
+	ctx.restore();
+}
+
 async function renderImage(
 	ctx: CanvasRenderingContext2D,
 	annotation: AnnotationRegion,
@@ -303,6 +329,10 @@ export async function renderAnnotations(
 						scaleFactor,
 					);
 				}
+				break;
+
+			case "emoji":
+				renderEmoji(ctx, annotation, x, y, width, height, scaleFactor);
 				break;
 		}
 	}

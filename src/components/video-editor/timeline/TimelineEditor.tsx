@@ -1291,6 +1291,8 @@ export default function TimelineEditor({
 				label = preview.length > 20 ? `${preview.substring(0, 20)}...` : preview;
 			} else if (region.type === "image") {
 				label = t("labels.imageItem");
+			} else if (region.type === "emoji") {
+				label = `${region.emojiData?.emoji || region.content || "\u{1F44D}"} ${t("labels.emojiItem")}`;
 			} else {
 				label = t("labels.annotationItem");
 			}

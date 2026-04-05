@@ -32,7 +32,13 @@ import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { cn } from "@/lib/utils";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
-import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
+import type {
+	AnnotationRegion,
+	AnnotationType,
+	ArrowDirection,
+	EmojiData,
+	FigureData,
+} from "./types";
 
 interface AnnotationSettingsPanelProps {
 	annotation: AnnotationRegion;
@@ -40,6 +46,7 @@ interface AnnotationSettingsPanelProps {
 	onTypeChange: (type: AnnotationType) => void;
 	onStyleChange: (style: Partial<AnnotationRegion["style"]>) => void;
 	onFigureDataChange?: (figureData: FigureData) => void;
+	onEmojiDataChange?: (emojiData: EmojiData) => void;
 	onDelete: () => void;
 }
 
@@ -62,6 +69,7 @@ export function AnnotationSettingsPanel({
 	onTypeChange,
 	onStyleChange,
 	onFigureDataChange,
+	onEmojiDataChange,
 	onDelete,
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("settings");
@@ -155,27 +163,27 @@ export function AnnotationSettingsPanel({
 					onValueChange={(value) => onTypeChange(value as AnnotationType)}
 					className="mb-6"
 				>
-					<TabsList className="mb-4 bg-white/5 border border-white/5 p-1 w-full grid grid-cols-3 h-auto rounded-xl">
+					<TabsList className="mb-4 bg-white/5 border border-white/5 p-1 w-full grid grid-cols-4 h-auto rounded-xl">
 						<TabsTrigger
 							value="text"
-							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-2"
+							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-1 text-xs"
 						>
-							<Type className="w-4 h-4" />
+							<Type className="w-3.5 h-3.5" />
 							{t("annotation.typeText")}
 						</TabsTrigger>
 						<TabsTrigger
 							value="image"
-							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-2"
+							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-1 text-xs"
 						>
-							<ImageIcon className="w-4 h-4" />
+							<ImageIcon className="w-3.5 h-3.5" />
 							{t("annotation.typeImage")}
 						</TabsTrigger>
 						<TabsTrigger
 							value="figure"
-							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-2"
+							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-1 text-xs"
 						>
 							<svg
-								className="w-4 h-4"
+								className="w-3.5 h-3.5"
 								viewBox="0 0 24 24"
 								fill="none"
 								stroke="currentColor"
@@ -184,6 +192,13 @@ export function AnnotationSettingsPanel({
 								<path d="M4 12h16m0 0l-6-6m6 6l-6 6" strokeLinecap="round" strokeLinejoin="round" />
 							</svg>
 							{t("annotation.typeArrow")}
+						</TabsTrigger>
+						<TabsTrigger
+							value="emoji"
+							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 py-2 rounded-lg transition-all gap-1 text-xs"
+						>
+							<span className="text-base leading-none">{"\u{1F600}"}</span>
+							{t("annotation.typeEmoji")}
 						</TabsTrigger>
 					</TabsList>
 
@@ -593,6 +608,84 @@ export function AnnotationSettingsPanel({
 									/>
 								</PopoverContent>
 							</Popover>
+						</div>
+					</TabsContent>
+
+					<TabsContent value="emoji" className="mt-0 space-y-4">
+						<div>
+							<label className="text-xs font-medium text-slate-200 mb-3 block">
+								{t("annotation.emojiPicker")}
+							</label>
+							<div className="grid grid-cols-6 gap-2">
+								{[
+									"\u{1F44D}",
+									"\u{1F44E}",
+									"\u{1F44F}",
+									"\u{1F525}",
+									"\u{2B50}",
+									"\u{2764}\u{FE0F}",
+									"\u{1F389}",
+									"\u{1F4A1}",
+									"\u{2705}",
+									"\u{274C}",
+									"\u{26A0}\u{FE0F}",
+									"\u{1F4CC}",
+									"\u{1F680}",
+									"\u{1F3AF}",
+									"\u{1F4AF}",
+									"\u{1F4AC}",
+									"\u{1F440}",
+									"\u{270F}\u{FE0F}",
+									"\u{1F4A5}",
+									"\u{1F31F}",
+									"\u{1F60A}",
+									"\u{1F914}",
+									"\u{1F622}",
+									"\u{1F62E}",
+								].map((emoji) => (
+									<button
+										key={emoji}
+										onClick={() => {
+											const newEmojiData: EmojiData = {
+												...annotation.emojiData!,
+												emoji,
+											};
+											onEmojiDataChange?.(newEmojiData);
+											onContentChange(emoji);
+										}}
+										className={cn(
+											"h-12 rounded-lg border flex items-center justify-center transition-all text-2xl",
+											(annotation.emojiData?.emoji || annotation.content) === emoji
+												? "bg-[#34B27B] border-[#34B27B]"
+												: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
+										)}
+									>
+										{emoji}
+									</button>
+								))}
+							</div>
+						</div>
+
+						<div>
+							<label className="text-xs font-medium text-slate-200 mb-2 block">
+								{t("annotation.emojiSize", {
+									size: String(annotation.emojiData?.size || 64),
+								})}
+							</label>
+							<Slider
+								value={[annotation.emojiData?.size || 64]}
+								onValueChange={([value]) => {
+									const newEmojiData: EmojiData = {
+										...annotation.emojiData!,
+										size: value,
+									};
+									onEmojiDataChange?.(newEmojiData);
+								}}
+								min={16}
+								max={256}
+								step={4}
+								className="w-full"
+							/>
 						</div>
 					</TabsContent>
 				</Tabs>

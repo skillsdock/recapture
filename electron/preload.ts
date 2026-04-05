@@ -121,6 +121,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setMicrophoneExpanded: (expanded: boolean) => {
 		ipcRenderer.send("hud:setMicrophoneExpanded", expanded);
 	},
+	// CLI export helpers
+	getCliExportArgs: () => {
+		return ipcRenderer.invoke("get-cli-export-args");
+	},
+	reportCliExportComplete: (data: ArrayBuffer) => {
+		return ipcRenderer.invoke("cli-export-complete", data);
+	},
+	reportCliExportError: (message: string) => {
+		return ipcRenderer.invoke("cli-export-error", message);
+	},
+	readProjectFileByPath: (filePath: string) => {
+		return ipcRenderer.invoke("read-project-file-by-path", filePath);
+	},
 	setHasUnsavedChanges: (hasChanges: boolean) => {
 		ipcRenderer.send("set-has-unsaved-changes", hasChanges);
 	},

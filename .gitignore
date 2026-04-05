@@ -30,3 +30,16 @@ release/**
 # Playwright
 test-results
 playwright-report/
+recapture-creator-workspace/
+recapture-workspace/
+.claude/
+.playwright-mcp/
+.code-review-graph/
+CLAUDE.md
+AGENTS.md
+.mcp.json
+
+# Environment variables
+.env
+.env.*
+!.env.example

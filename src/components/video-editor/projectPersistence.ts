@@ -9,6 +9,7 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_CROP_REGION,
+	DEFAULT_EMOJI_DATA,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_WEBCAM_LAYOUT_PRESET,
@@ -257,7 +258,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						id: region.id,
 						startMs,
 						endMs,
-						type: region.type === "image" || region.type === "figure" ? region.type : "text",
+						type:
+								region.type === "image" ||
+								region.type === "figure" ||
+								region.type === "emoji"
+									? region.type
+									: "text",
 						content: typeof region.content === "string" ? region.content : "",
 						textContent: typeof region.textContent === "string" ? region.textContent : undefined,
 						imageContent: typeof region.imageContent === "string" ? region.imageContent : undefined,
@@ -304,6 +310,14 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 									...region.figureData,
 								}
 							: undefined,
+						emojiData: region.emojiData
+							? {
+									...DEFAULT_EMOJI_DATA,
+									...region.emojiData,
+								}
+							: undefined,
+						emojiContent:
+							typeof region.emojiContent === "string" ? region.emojiContent : undefined,
 					};
 				})
 		: [];

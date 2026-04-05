@@ -1,6 +1,7 @@
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
 import type { VideoMuxer } from "./muxer";
+import { expandSpeedRegionsForTrims } from "./streamingDecoder";
 
 const AUDIO_BITRATE = 128_000;
 const DECODE_BACKPRESSURE_LIMIT = 20;
@@ -31,10 +32,16 @@ export class AudioProcessor {
 
 		// Speed edits must use timeline playback to preserve pitch
 		if (sortedSpeedRegions.length > 0) {
+			// Expand speed regions to bridge across trim gaps so the audio matches
+			// the video duration computed by computeEffectiveDuration.
+			const expandedSpeedRegions =
+				sortedTrims.length > 0
+					? expandSpeedRegionsForTrims(sortedSpeedRegions, sortedTrims)
+					: sortedSpeedRegions;
 			const renderedAudioBlob = await this.renderPitchPreservedTimelineAudio(
 				videoUrl,
 				sortedTrims,
-				sortedSpeedRegions,
+				expandedSpeedRegions,
 			);
 			if (!this.cancelled) {
 				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer);

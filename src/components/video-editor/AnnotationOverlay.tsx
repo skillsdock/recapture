@@ -113,6 +113,24 @@ export function AnnotationOverlay({
 					<div className="w-full h-full flex items-center justify-center p-2">{renderArrow()}</div>
 				);
 
+			case "emoji": {
+				const emojiChar = annotation.emojiData?.emoji || annotation.content || "\u{1F44D}";
+				const emojiSize = annotation.emojiData?.size || 64;
+				return (
+					<div className="w-full h-full flex items-center justify-center">
+						<span
+							style={{
+								fontSize: `${emojiSize}px`,
+								lineHeight: 1,
+								userSelect: "none",
+							}}
+						>
+							{emojiChar}
+						</span>
+					</div>
+				);
+			}
+
 			default:
 				return null;
 		}
@@ -210,6 +228,7 @@ export function AnnotationOverlay({
 					annotation.type === "text" && "bg-transparent",
 					annotation.type === "image" && "bg-transparent",
 					annotation.type === "figure" && "bg-transparent",
+					annotation.type === "emoji" && "bg-transparent",
 					isSelected && "shadow-lg",
 				)}
 			>

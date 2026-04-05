@@ -20,6 +20,7 @@
 		"speedItem": "速度 {{index}}",
 		"annotationItem": "标注",
 		"imageItem": "图片",
+		"emojiItem": "表情",
 		"emptyText": "空文本"
 	},
 	"emptyState": {

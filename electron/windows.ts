@@ -120,6 +120,31 @@ export function createEditorWindow(): BrowserWindow {
 	return win;
 }
 
+export function createCliExportWindow(): BrowserWindow {
+	const win = new BrowserWindow({
+		width: 800,
+		height: 600,
+		show: false,
+		webPreferences: {
+			preload: path.join(__dirname, "preload.mjs"),
+			nodeIntegration: false,
+			contextIsolation: true,
+			webSecurity: false,
+			backgroundThrottling: false,
+		},
+	});
+
+	if (VITE_DEV_SERVER_URL) {
+		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=cli-export");
+	} else {
+		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
+			query: { windowType: "cli-export" },
+		});
+	}
+
+	return win;
+}
+
 export function createSourceSelectorWindow(): BrowserWindow {
 	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 

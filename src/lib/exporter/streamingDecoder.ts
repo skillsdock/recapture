@@ -63,6 +63,172 @@ export function shouldFailDecodeEndedEarly({
 	return true;
 }
 
+/**
+ * Build kept-segments by removing trim regions from the full video duration.
+ * Returns an array of source-time ranges that represent non-trimmed content.
+ */
+export function computeTrimSegments(
+	totalDuration: number,
+	trimRegions?: TrimRegion[],
+): Array<{ startSec: number; endSec: number }> {
+	if (!trimRegions || trimRegions.length === 0) {
+		return [{ startSec: 0, endSec: totalDuration }];
+	}
+
+	const sorted = [...trimRegions].sort((a, b) => a.startMs - b.startMs);
+	const segments: Array<{ startSec: number; endSec: number }> = [];
+	let cursor = 0;
+
+	for (const trim of sorted) {
+		const trimStart = trim.startMs / 1000;
+		const trimEnd = trim.endMs / 1000;
+		if (cursor < trimStart) {
+			segments.push({ startSec: cursor, endSec: trimStart });
+		}
+		cursor = trimEnd;
+	}
+
+	if (cursor < totalDuration) {
+		segments.push({ startSec: cursor, endSec: totalDuration });
+	}
+
+	return segments;
+}
+
+/**
+ * Expand speed region boundaries so they bridge across trim gaps.
+ *
+ * When a user draws a speed region on the timeline, its visual extent covers
+ * N seconds of *visible* (non-trimmed) content.  However the region's startMs/
+ * endMs are stored in source-time coordinates.  If a trim gap falls inside
+ * the region's source-time range, the region's endMs is too short to actually
+ * cover all the visible content the user intended.
+ *
+ * This helper adds the cumulative trim-gap duration that falls within (or is
+ * adjacent to) each speed region so that `splitSegmentsBySpeed` can correctly
+ * assign speed to the full intended range.
+ */
+export function expandSpeedRegionsForTrims(
+	speedRegions: SpeedRegion[],
+	trimRegions: TrimRegion[],
+): SpeedRegion[] {
+	if (trimRegions.length === 0) return speedRegions;
+
+	const sortedTrims = [...trimRegions].sort((a, b) => a.startMs - b.startMs);
+
+	return speedRegions.map((sr) => {
+		let expansion = 0;
+		for (const trim of sortedTrims) {
+			// Count trim gaps whose start falls within the (progressively expanded)
+			// speed region range.  Each gap pushes the effective end further out.
+			const effectiveEnd = sr.endMs + expansion;
+			if (trim.startMs >= sr.startMs && trim.startMs <= effectiveEnd) {
+				expansion += trim.endMs - trim.startMs;
+			}
+		}
+		if (expansion <= 0) return sr;
+		return { ...sr, endMs: sr.endMs + expansion };
+	});
+}
+
+/**
+ * Subdivide kept-segments by speed regions, assigning a speed multiplier to each
+ * sub-range. Ranges outside any speed region default to 1x.
+ *
+ * When `trimRegions` is provided, speed region boundaries are first expanded to
+ * bridge across trim gaps so that a speed region the user drew to cover N seconds
+ * of visible content actually covers N seconds of kept content even when trim
+ * gaps push the source-time range beyond the region's raw endMs.
+ */
+export function splitSegmentsBySpeed(
+	segments: Array<{ startSec: number; endSec: number }>,
+	speedRegions?: SpeedRegion[],
+	trimRegions?: TrimRegion[],
+): Array<{ startSec: number; endSec: number; speed: number }> {
+	if (!speedRegions || speedRegions.length === 0)
+		return segments.map((s) => ({ ...s, speed: 1 }));
+
+	const expanded =
+		trimRegions && trimRegions.length > 0
+			? expandSpeedRegionsForTrims(speedRegions, trimRegions)
+			: speedRegions;
+
+	const result: Array<{ startSec: number; endSec: number; speed: number }> = [];
+	for (const segment of segments) {
+		const overlapping = expanded
+			.filter((sr) => sr.startMs / 1000 < segment.endSec && sr.endMs / 1000 > segment.startSec)
+			.sort((a, b) => a.startMs - b.startMs);
+
+		if (overlapping.length === 0) {
+			result.push({ ...segment, speed: 1 });
+			continue;
+		}
+
+		let cursor = segment.startSec;
+		for (const sr of overlapping) {
+			const srStart = Math.max(sr.startMs / 1000, segment.startSec);
+			const srEnd = Math.min(sr.endMs / 1000, segment.endSec);
+			if (cursor < srStart) result.push({ startSec: cursor, endSec: srStart, speed: 1 });
+			result.push({ startSec: srStart, endSec: srEnd, speed: sr.speed });
+			cursor = srEnd;
+		}
+		if (cursor < segment.endSec)
+			result.push({ startSec: cursor, endSec: segment.endSec, speed: 1 });
+	}
+	return result.filter((s) => s.endSec - s.startSec > 0.0001);
+}
+
+/**
+ * Compute the output duration after applying trim and speed regions.
+ * Trim regions are applied first (segments), then speed regions subdivide them.
+ * The two effects must NOT be computed independently.
+ */
+export function computeEffectiveDuration(
+	totalDuration: number,
+	trimRegions?: TrimRegion[],
+	speedRegions?: SpeedRegion[],
+): number {
+	const trimSegments = computeTrimSegments(totalDuration, trimRegions);
+	const speedSegments = splitSegmentsBySpeed(trimSegments, speedRegions, trimRegions);
+	return speedSegments.reduce((sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed, 0);
+}
+
+/**
+ * Distribute frames across speed-split segments so the total exactly matches
+ * ceil(effectiveDuration * frameRate). Using per-segment Math.ceil can overshoot
+ * the total when there are many segments (trim + speed interaction), making
+ * the export longer than getEffectiveDuration predicts.
+ */
+export function computeSegmentFrameCounts(
+	segments: Array<{ startSec: number; endSec: number; speed: number }>,
+	targetFrameRate: number,
+): number[] {
+	const effectiveDuration = segments.reduce(
+		(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
+		0,
+	);
+	const totalFrames = Math.ceil(effectiveDuration * targetFrameRate);
+
+	const counts: number[] = [];
+	let emitted = 0;
+	for (let i = 0; i < segments.length; i++) {
+		const segDuration = (segments[i].endSec - segments[i].startSec) / segments[i].speed;
+		const cumulativeTarget =
+			i === segments.length - 1
+				? totalFrames
+				: Math.round(
+						segments
+							.slice(0, i + 1)
+							.reduce((s, seg) => s + (seg.endSec - seg.startSec) / seg.speed, 0) *
+							targetFrameRate,
+					);
+		const segFrames = Math.max(segDuration > 0 ? 1 : 0, cumulativeTarget - emitted);
+		counts.push(segFrames);
+		emitted += segFrames;
+	}
+	return counts;
+}
+
 /** Caller must close the VideoFrame after use. */
 type OnFrameCallback = (
 	frame: VideoFrame,
@@ -185,13 +351,12 @@ export class StreamingVideoDecoder {
 		const decoderConfig = await this.demuxer.getDecoderConfig("video");
 		const codec = this.metadata.codec.toLowerCase();
 		const shouldPreferSoftwareDecode = codec.includes("av01") || codec.includes("av1");
-		const segments = this.splitBySpeed(
-			this.computeSegments(this.metadata.duration, trimRegions),
+		const segments = splitSegmentsBySpeed(
+			computeTrimSegments(this.metadata.duration, trimRegions),
 			speedRegions,
+			trimRegions,
 		);
-		const segmentOutputFrameCounts = segments.map((segment) =>
-			Math.ceil(((segment.endSec - segment.startSec) / segment.speed) * targetFrameRate),
-		);
+		const segmentOutputFrameCounts = computeSegmentFrameCounts(segments, targetFrameRate);
 		const frameDurationUs = 1_000_000 / targetFrameRate;
 		const epsilonSec = 0.001;
 
@@ -452,71 +617,9 @@ export class StreamingVideoDecoder {
 		}
 	}
 
-	private computeSegments(
-		totalDuration: number,
-		trimRegions?: TrimRegion[],
-	): Array<{ startSec: number; endSec: number }> {
-		if (!trimRegions || trimRegions.length === 0) {
-			return [{ startSec: 0, endSec: totalDuration }];
-		}
-
-		const sorted = [...trimRegions].sort((a, b) => a.startMs - b.startMs);
-		const segments: Array<{ startSec: number; endSec: number }> = [];
-		let cursor = 0;
-
-		for (const trim of sorted) {
-			const trimStart = trim.startMs / 1000;
-			const trimEnd = trim.endMs / 1000;
-			if (cursor < trimStart) {
-				segments.push({ startSec: cursor, endSec: trimStart });
-			}
-			cursor = trimEnd;
-		}
-
-		if (cursor < totalDuration) {
-			segments.push({ startSec: cursor, endSec: totalDuration });
-		}
-
-		return segments;
-	}
-
 	getEffectiveDuration(trimRegions?: TrimRegion[], speedRegions?: SpeedRegion[]): number {
 		if (!this.metadata) throw new Error("Must call loadMetadata() first");
-		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
-		const speedSegments = this.splitBySpeed(trimSegments, speedRegions);
-		return speedSegments.reduce((sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed, 0);
-	}
-
-	private splitBySpeed(
-		segments: Array<{ startSec: number; endSec: number }>,
-		speedRegions?: SpeedRegion[],
-	): Array<{ startSec: number; endSec: number; speed: number }> {
-		if (!speedRegions || speedRegions.length === 0)
-			return segments.map((s) => ({ ...s, speed: 1 }));
-
-		const result: Array<{ startSec: number; endSec: number; speed: number }> = [];
-		for (const segment of segments) {
-			const overlapping = speedRegions
-				.filter((sr) => sr.startMs / 1000 < segment.endSec && sr.endMs / 1000 > segment.startSec)
-				.sort((a, b) => a.startMs - b.startMs);
-
-			if (overlapping.length === 0) {
-				result.push({ ...segment, speed: 1 });
-				continue;
-			}
-
-			let cursor = segment.startSec;
-			for (const sr of overlapping) {
-				const srStart = Math.max(sr.startMs / 1000, segment.startSec);
-				const srEnd = Math.min(sr.endMs / 1000, segment.endSec);
-				if (cursor < srStart) result.push({ startSec: cursor, endSec: srStart, speed: 1 });
-				result.push({ startSec: srStart, endSec: srEnd, speed: sr.speed });
-				cursor = srEnd;
-			}
-			if (cursor < segment.endSec)
-				result.push({ startSec: cursor, endSec: segment.endSec, speed: 1 });
-		}
-		return result.filter((s) => s.endSec - s.startSec > 0.0001);
+		return computeEffectiveDuration(this.metadata.duration, trimRegions, speedRegions);
 	}
 
 	getDemuxer(): WebDemuxer | null {

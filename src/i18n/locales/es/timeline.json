@@ -20,6 +20,7 @@
 		"speedItem": "Velocidad {{index}}",
 		"annotationItem": "Anotación",
 		"imageItem": "Imagen",
+		"emojiItem": "Emoji",
 		"emptyText": "Texto vacío"
 	},
 	"emptyState": {

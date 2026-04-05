@@ -759,6 +759,10 @@ export function registerIpcHandlers(
 		return { success: true };
 	});
 
+	ipcMain.handle("get-app-version", () => {
+		return app.getVersion();
+	});
+
 	ipcMain.handle("get-platform", () => {
 		return process.platform;
 	});

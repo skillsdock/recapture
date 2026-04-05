@@ -98,6 +98,7 @@
 		"typeText": "Texto",
 		"typeImage": "Imagen",
 		"typeArrow": "Flecha",
+		"typeEmoji": "Emoji",
 		"textContent": "Contenido de texto",
 		"textPlaceholder": "Escribe tu texto...",
 		"fontStyle": "Estilo de fuente",
@@ -114,6 +115,8 @@
 		"arrowDirection": "Dirección de la flecha",
 		"strokeWidth": "Grosor del trazo: {{width}}px",
 		"arrowColor": "Color de la flecha",
+		"emojiPicker": "Elegir emoji",
+		"emojiSize": "Tamaño del emoji: {{size}}px",
 		"deleteAnnotation": "Eliminar anotación",
 		"shortcutsAndTips": "Atajos y consejos",
 		"tipMovePlayhead": "Mueve el cabezal de reproducción a la sección de anotación superpuesta y selecciona un elemento.",
@@ -122,7 +125,9 @@
 		"invalidImageType": "Tipo de archivo no válido",
 		"imageFormatsOnly": "Por favor sube un archivo de imagen JPG, PNG, GIF o WebP.",
 		"imageUploadSuccess": "¡Imagen subida exitosamente!",
-		"failedImageUpload": "Error al subir la imagen"
+		"failedImageUpload": "Error al subir la imagen",
+		"emojiPicker": "Elegir Emoji",
+		"emojiSize": "Tamaño del emoji: {{size}}px"
 	},
 	"fontStyles": {
 		"classic": "Clásico",

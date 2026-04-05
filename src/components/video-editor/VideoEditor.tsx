@@ -47,9 +47,11 @@ import {
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
+	DEFAULT_EMOJI_DATA,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
+	type EmojiData,
 	type FigureData,
 	type PlaybackSpeed,
 	type SpeedRegion,
@@ -122,6 +124,7 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [appVersion, setAppVersion] = useState<string | null>(null);
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -455,6 +458,10 @@ export default function VideoEditor() {
 	useEffect(() => {
 		window.electronAPI.setHasUnsavedChanges(hasUnsavedChanges);
 	}, [hasUnsavedChanges]);
+
+	useEffect(() => {
+		window.electronAPI.getAppVersion().then(setAppVersion).catch(() => {});
+	}, []);
 
 	useEffect(() => {
 		const cleanup = window.electronAPI.onRequestSaveBeforeClose(async () => {
@@ -852,6 +859,8 @@ export default function VideoEditor() {
 						return { ...region, content, textContent: content };
 					} else if (region.type === "image") {
 						return { ...region, content, imageContent: content };
+					} else if (region.type === "emoji") {
+						return { ...region, content, emojiContent: content };
 					}
 					return { ...region, content };
 				}),
@@ -874,6 +883,11 @@ export default function VideoEditor() {
 						updatedRegion.content = "";
 						if (!region.figureData) {
 							updatedRegion.figureData = { ...DEFAULT_FIGURE_DATA };
+						}
+					} else if (type === "emoji") {
+						updatedRegion.content = region.emojiContent || DEFAULT_EMOJI_DATA.emoji;
+						if (!region.emojiData) {
+							updatedRegion.emojiData = { ...DEFAULT_EMOJI_DATA };
 						}
 					}
 					return updatedRegion;
@@ -899,6 +913,17 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
 					region.id === id ? { ...region, figureData } : region,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleAnnotationEmojiDataChange = useCallback(
+		(id: string, emojiData: EmojiData) => {
+			pushState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id ? { ...region, emojiData } : region,
 				),
 			}));
 		},
@@ -1680,6 +1705,7 @@ export default function VideoEditor() {
 						onAnnotationTypeChange={handleAnnotationTypeChange}
 						onAnnotationStyleChange={handleAnnotationStyleChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
+						onAnnotationEmojiDataChange={handleAnnotationEmojiDataChange}
 						onAnnotationDelete={handleAnnotationDelete}
 						selectedSpeedId={selectedSpeedId}
 						selectedSpeedValue={
@@ -1708,6 +1734,12 @@ export default function VideoEditor() {
 					exportedFilePath ? () => void handleShowExportedFile(exportedFilePath) : undefined
 				}
 			/>
+
+			{appVersion && (
+				<div className="fixed bottom-2 right-3 text-[10px] text-white/30 select-none pointer-events-none z-50">
+					v{appVersion}
+				</div>
+			)}
 		</div>
 	);
 }

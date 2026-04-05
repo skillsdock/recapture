@@ -137,7 +137,22 @@ interface Window {
 		setHasUnsavedChanges: (hasChanges: boolean) => void;
 		onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => () => void;
 		setLocale: (locale: string) => Promise<void>;
+		// CLI export helpers
+		getCliExportArgs: () => Promise<CliExportArgs | null>;
+		reportCliExportComplete: (data: ArrayBuffer) => Promise<void>;
+		reportCliExportError: (message: string) => Promise<void>;
+		readProjectFileByPath: (
+			filePath: string,
+		) => Promise<{ success: boolean; project?: unknown; error?: string }>;
 	};
+}
+
+interface CliExportArgs {
+	projectPath: string;
+	outputPath: string;
+	format?: "mp4" | "gif";
+	aspect?: "9:16" | "16:9" | "1:1" | "4:5";
+	quality?: "medium" | "good" | "source";
 }
 
 interface ProcessedDesktopSource {

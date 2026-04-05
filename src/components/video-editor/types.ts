@@ -43,7 +43,7 @@ export interface TrimRegion {
 	endMs: number;
 }
 
-export type AnnotationType = "text" | "image" | "figure";
+export type AnnotationType = "text" | "image" | "figure" | "emoji";
 
 export type ArrowDirection =
 	| "up"
@@ -59,6 +59,11 @@ export interface FigureData {
 	arrowDirection: ArrowDirection;
 	color: string;
 	strokeWidth: number;
+}
+
+export interface EmojiData {
+	emoji: string;
+	size: number; // font size in pixels
 }
 
 export interface AnnotationPosition {
@@ -95,6 +100,8 @@ export interface AnnotationRegion {
 	style: AnnotationTextStyle;
 	zIndex: number;
 	figureData?: FigureData;
+	emojiData?: EmojiData;
+	emojiContent?: string; // Separate storage for emoji character
 }
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {
@@ -122,6 +129,11 @@ export const DEFAULT_FIGURE_DATA: FigureData = {
 	arrowDirection: "right",
 	color: "#34B27B",
 	strokeWidth: 4,
+};
+
+export const DEFAULT_EMOJI_DATA: EmojiData = {
+	emoji: "\u{1F44D}",
+	size: 64,
 };
 
 export interface CropRegion {

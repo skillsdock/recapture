@@ -14,7 +14,12 @@ import {
 } from "electron";
 import { mainT, setMainLocale } from "./i18n";
 import { registerIpcHandlers } from "./ipc/handlers";
-import { createEditorWindow, createHudOverlayWindow, createSourceSelectorWindow } from "./windows";
+import {
+	createCliExportWindow,
+	createEditorWindow,
+	createHudOverlayWindow,
+	createSourceSelectorWindow,
+} from "./windows";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,6 +41,94 @@ async function ensureRecordingsDir() {
 		console.error("Failed to create recordings directory:", error);
 	}
 }
+
+// ── CLI export types & argument parsing ────────────────────────────────────────
+
+export interface CliExportArgs {
+	projectPath: string;
+	outputPath: string;
+	format?: "mp4" | "gif";
+	aspect?: "9:16" | "16:9" | "1:1" | "4:5";
+	quality?: "medium" | "good" | "source";
+}
+
+function parseCliExportArgs(): CliExportArgs | null {
+	const argv = process.argv;
+	const exportIndex = argv.indexOf("--export");
+	if (exportIndex === -1) return null;
+
+	const projectPath = argv[exportIndex + 1];
+	if (!projectPath || projectPath.startsWith("--")) {
+		console.error("Error: --export requires a path to a .recapture project file.");
+		process.exit(1);
+	}
+
+	const outputIndex = argv.indexOf("--output");
+	let outputPath: string | undefined;
+	if (outputIndex !== -1) {
+		outputPath = argv[outputIndex + 1];
+		if (!outputPath || outputPath.startsWith("--")) {
+			console.error("Error: --output requires a file path.");
+			process.exit(1);
+		}
+	}
+
+	if (!outputPath) {
+		console.error("Error: --output is required for CLI export.");
+		process.exit(1);
+	}
+
+	let format: CliExportArgs["format"];
+	const formatIndex = argv.indexOf("--format");
+	if (formatIndex !== -1) {
+		const formatValue = argv[formatIndex + 1];
+		if (formatValue === "mp4" || formatValue === "gif") {
+			format = formatValue;
+		} else {
+			console.error('Error: --format must be "mp4" or "gif".');
+			process.exit(1);
+		}
+	}
+
+	let aspect: CliExportArgs["aspect"];
+	const aspectIndex = argv.indexOf("--aspect");
+	if (aspectIndex !== -1) {
+		const aspectValue = argv[aspectIndex + 1];
+		if (
+			aspectValue === "9:16" ||
+			aspectValue === "16:9" ||
+			aspectValue === "1:1" ||
+			aspectValue === "4:5"
+		) {
+			aspect = aspectValue;
+		} else {
+			console.error('Error: --aspect must be one of "9:16", "16:9", "1:1", "4:5".');
+			process.exit(1);
+		}
+	}
+
+	let quality: CliExportArgs["quality"];
+	const qualityIndex = argv.indexOf("--quality");
+	if (qualityIndex !== -1) {
+		const qualityValue = argv[qualityIndex + 1];
+		if (qualityValue === "medium" || qualityValue === "good" || qualityValue === "source") {
+			quality = qualityValue;
+		} else {
+			console.error('Error: --quality must be one of "medium", "good", "source".');
+			process.exit(1);
+		}
+	}
+
+	return {
+		projectPath: path.resolve(projectPath),
+		outputPath: path.resolve(outputPath),
+		format,
+		aspect,
+		quality,
+	};
+}
+
+let cliExportArgs: CliExportArgs | null = null;
 
 // The built directory structure
 //
@@ -334,6 +427,9 @@ app.on("activate", () => {
 	}
 });
 
+// Parse CLI args early so we know if we're in headless export mode
+cliExportArgs = parseCliExportArgs();
+
 // Register all IPC handlers when app is ready
 app.whenReady().then(async () => {
 	// Allow microphone/media permission checks
@@ -385,5 +481,45 @@ app.whenReady().then(async () => {
 			}
 		},
 	);
+
+	// ── CLI headless export mode ───────────────────────────────────────────
+	if (cliExportArgs) {
+		const args = cliExportArgs;
+
+		ipcMain.handle("get-cli-export-args", () => args);
+
+		ipcMain.handle("cli-export-complete", async (_, data: ArrayBuffer) => {
+			try {
+				await fs.writeFile(args.outputPath, Buffer.from(data));
+				console.log(`Export saved to ${args.outputPath}`);
+				app.exit(0);
+			} catch (error) {
+				console.error("Failed to write export output:", error);
+				app.exit(1);
+			}
+		});
+
+		ipcMain.handle("cli-export-error", (_, message: string) => {
+			console.error(`Export failed: ${message}`);
+			app.exit(1);
+		});
+
+		// Read the project file and send it to the renderer as JSON
+		ipcMain.handle("read-project-file-by-path", async (_, filePath: string) => {
+			try {
+				const content = await fs.readFile(filePath, "utf-8");
+				return { success: true, project: JSON.parse(content) };
+			} catch (error) {
+				return { success: false, error: String(error) };
+			}
+		});
+
+		const cliWindow = createCliExportWindow();
+		cliWindow.on("closed", () => {
+			app.quit();
+		});
+		return;
+	}
+
 	createWindow();
 });
